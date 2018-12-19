@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>双向绑定 方便理解的方式编写</title>
+</head>
+
+<body>
+    <div id="app">
+        <input type="text" v-model="text"> {{text}}!!!
+    </div>
+    <script>
+        function Vue(options) {
+            this.data = options.data();
+            var data = this.data;
+            var id = options.el;
+            console.log(this.data, data);
+            var Subs = [];
+            var Target = null;
+
+            Object.keys(data).forEach(function(key) {
+                var val = data[key];
+                Object.defineProperty(data, key, {
+                    get: function() {
+                        if (Target) Subs.push(Target);
+                        Target = null;
+                        return val;
+                    },
+                    set: function(newVal) {
+                        console.log('newVal', newVal);
+                        if (newVal == val) return;
+                        val = newVal;
+                        Subs.forEach(function(sub) {
+                            console.log(sub.nodeType, sub.nodeName);
+                            if (sub.nodeType === 3 && sub.nodeName == '#text') {
+                                console.log('nodevalue:', sub.nodeValue);
+                                var value = sub.nodeVal;
+                                sub.nodeValue = value.replace(/\{\{.*\}\}/, newVal);
+                                console.log('text:', sub.nodeValue);
+                            }
+                            if (sub.nodeType === 1 && sub.nodeName == 'INPUT') {
+                                sub.value = newVal;
+                            }
+                        })
+                    }
+                });
+            })
+            console.log(this.data, id);
+            var app = document.getElementById(id);
+            console.log(app.childNodes);
+            var flag = document.createDocumentFragment();
+            while (node = app.firstChild) {
+                if (node.nodeType === 1) {
+                    var attr = node.attributes;
+                    for (var i = 0, len = attr.length; i < len; i++) {
+                        if (attr[i].nodeName == 'v-model') {
+                            var name = attr[i].nodeValue;
+                            console.log(attr[i].nodeName, attr[i].nodeValue);
+                            node.addEventListener('input', function(e) {
+                                console.log(e.target.value);
+                                data[name] = e.target.value;
+                            });
+                            node.value = data[name];
+                            node.removeAttribute('v-model');
+                            Target = node;
+                            console.log(data[name])
+                        }
+                    }
+                }
+                if (node.nodeType === 3) {
+                    if (/\{\{(.*)\}\}/.test(node.nodeValue)) {
+                        var name = RegExp.$1;
+                        name = name.trim();
+                        var value = node.nodeValue;
+                        Target = node;
+                        var newValue = data[name]; //触发get方法
+                        node.nodeValue = value.replace(/\{\{.*\}\}/, newValue);
+                        node.nodeVal = value; //记录最早的这个旧内容包含{{}}外的值方便替换;
+                        //console.log(data[name]);
+
+                    }
+                }
+                console.log(node, node.nodeType);
+                flag.appendChild(node);
+            }
+            app.appendChild(flag);
+        }
+        new Vue({
+            el: 'app',
+            data: function() {
+                return {
+                    text: 'hello world'
+                }
+            }
+        })
+    </script>
+</body>
+
+</html>
